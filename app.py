@@ -268,7 +268,7 @@ def render_about(syllabus: Syllabus) -> None:
 4. **Time** — convert weightage into days and weeks.
 5. **Records** — look up one student on demand.
 
-The decision tables live in [`tutor/config.py`](https://github.com/pranaybhatkar/Tutor_Module/blob/master/tutor/config.py)
+The decision tables live in [`tutor/config.py`](https://github.com/pranaybhatkar/tutor_module/blob/master/tutor/config.py)
 so the logic can be changed without touching the pipeline.
 """
     )

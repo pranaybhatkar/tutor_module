@@ -2,16 +2,16 @@
 
 > A student-centric tutoring platform that reads a batch's profile and **designs a syllabus from it** — deciding which topics to teach, how much weightage to give each, and how long each should take.
 
+[![Live Demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://tutormodule-pranay-b-portfolio.streamlit.app)
+
+**[Try it live →](https://tutormodule-pranay-b-portfolio.streamlit.app)**
+
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.65-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![pandas](https://img.shields.io/badge/pandas-3.0-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
 [![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![pytest](https://img.shields.io/badge/tests-60%20passing-42A5F5?logo=pytest&logoColor=white)](tests/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-
-<!-- Add your Streamlit Community Cloud URL here once deployed:
-[![Live Demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://YOUR-APP.streamlit.app)
--->
 
 ---
 
@@ -268,7 +268,7 @@ Six topics survive Stages 2–4, and the weightages sum to exactly **100%**:
 ## Repository Structure
 
 ```
-Tutor_Module/
+tutor_module/
 ├── app.py                        # Streamlit entry point — UI only
 ├── requirements.txt              # 5 real dependencies
 ├── .streamlit/
@@ -324,8 +324,8 @@ Python 3.9 or newer. Nothing else — no database server, no Node, no Docker.
 ### 1. Clone and set up
 
 ```bash
-git clone https://github.com/pranaybhatkar/Tutor_Module.git
-cd Tutor_Module
+git clone https://github.com/pranaybhatkar/tutor_module.git
+cd tutor_module
 
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
@@ -361,15 +361,24 @@ python -m pytest -v
 
 ### Streamlit Community Cloud (recommended, free)
 
-1. Push the code to GitHub — done.
+**This app is deployed there:** [tutormodule-pranay-b-portfolio.streamlit.app](https://tutormodule-pranay-b-portfolio.streamlit.app)
+
+To deploy your own fork:
+
+1. Fork or push the code to GitHub.
 2. Go to **[share.streamlit.io](https://share.streamlit.io)**.
 3. **Sign in with GitHub** and authorise Streamlit.
-4. Pick `pranaybhatkar/Tutor_Module`, branch `streamlit-migration` (or `master` once merged).
-5. Click **Deploy**.
+4. Pick your repository, branch `master`, main file `app.py`.
+5. Set the Python version to `3.11` under *Advanced settings*.
+6. Click **Deploy**.
 
-That's the whole process. Streamlit detects `requirements.txt` and `.streamlit/config.toml` automatically and builds a container for you.
+Streamlit detects `requirements.txt` and `.streamlit/config.toml` automatically and builds a container for you.
 
 `data/tutor.db` is gitignored, so the deployed app builds its own database from the spreadsheet on first request — nothing to provision.
+
+> **Note:** Community Cloud apps sleep after ~12 hours without traffic, so the first
+> page load after a long gap takes 30–90 seconds to wake up. Peak memory usage for this
+> app is ~117 MB against the 1 GB per-app limit.
 
 ### Any other host
 
