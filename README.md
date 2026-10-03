@@ -2,12 +2,16 @@
 
 > A student-centric tutoring platform that reads a batch's profile and **designs a syllabus from it** — deciding which topics to teach, how much weightage to give each, and how long each should take.
 
-[![Python](https://img.shields.io/badge/Python-3.8.5-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.75.0-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Jinja2](https://img.shields.io/badge/Jinja2-3.1.1-B41717?logo=jinja&logoColor=white)](https://jinja.palletsprojects.com/)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![Heroku](https://img.shields.io/badge/Deploy-Heroku-79589B?logo=heroku&logoColor=white)](https://www.heroku.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.65-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![pandas](https://img.shields.io/badge/pandas-3.0-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org/)
+[![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![pytest](https://img.shields.io/badge/tests-60%20passing-42A5F5?logo=pytest&logoColor=white)](tests/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
+<!-- Add your Streamlit Community Cloud URL here once deployed:
+[![Live Demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://YOUR-APP.streamlit.app)
+-->
 
 ---
 
@@ -21,15 +25,14 @@
 - [Architecture](#architecture)
 - [Repository Structure](#repository-structure)
 - [Data Model](#data-model)
-- [API Reference](#api-reference)
-- [Application Flow](#application-flow)
 - [Getting Started](#getting-started)
-- [Database Seeding](#database-seeding)
 - [Deployment](#deployment)
-- [How We Built It](#how-we-built-it)
+- [Project Evolution — FastAPI → Streamlit](#project-evolution--fastapi--streamlit)
+- [Testing](#testing)
 - [Design Decisions & Trade-offs](#design-decisions--trade-offs)
 - [Known Limitations](#known-limitations)
 - [Future Work](#future-work)
+- [Data Privacy](#data-privacy)
 - [Security Notice](#security-notice)
 - [Contributing](#contributing)
 - [License](#license)
@@ -41,10 +44,10 @@
 A tutor taking on a new batch cannot answer three very basic questions before day one:
 
 1. **Who am I actually teaching?** How many students are already from a CS/IT background versus coming from something else entirely?
-2. **What should I teach?** A boilerplate syllabus assumes everyone starts from zero. If 19 out of 30 students already know Python, spending three weeks on it is wasted time.
+2. **What should I teach?** A boilerplate syllabus assumes everyone starts from zero. If 19 of 30 students already know Python, spending three weeks on it is wasted time.
 3. **How long should each topic take, and in what order?**
 
-Manual answers to these questions mean manually reading 30 resumes and building a spreadsheet. That's slow, subjective, and it doesn't repeat.
+Manual answers mean manually reading 30 résumés and building a spreadsheet. That's slow, subjective, and it doesn't repeat.
 
 ## The Idea
 
@@ -52,54 +55,49 @@ Manual answers to these questions mean manually reading 30 resumes and building 
 
 The platform ingests a batch's profile sheet, and from the raw data alone derives a defensible teaching plan. It measures what the cohort already knows, drops topics that are already covered, and spends the remaining hours on the topics with the largest gaps. A tutor who has run the numbers walks into the first class with a plan instead of a guess.
 
-The name for this in the codebase is **"Priorities"** — the logic in `Priorities.py` is organised into five numbered stages, each narrowing the syllabus down one step.
+The name for this in the codebase is **"Priorities"** — the pipeline was originally organised into five numbered stages, and that naming survives the rewrite.
 
 ---
 
 ## How It Works — The 5-Stage Pipeline
 
-The entire intelligence of the app lives in `Priorities.py`, structured as five sequential stages:
+All of the intelligence lives in [`tutor/analysis.py`](tutor/analysis.py).
 
 ### Stage 1 — Profile the cohort
 
-Two questions are answered here.
+**How diverse is the batch?** Every student's `graduation_stream` is scanned. If it contains `"Computer"` or `"Information Technology"` the student counts as CS/IT, otherwise as non-CS/IT. The tutor now knows whether they're teaching a homogeneous CS batch or a mixed one.
 
-**How diverse is the batch?** Every student's `Graduation_Stream` is scanned. If it contains `"Computer"` or `"Information Technology"` the student is counted as CS/IT, otherwise as non-CS/IT. The tutor now knows whether they're teaching a homogeneous CS batch or a mixed one — which drives how much foundational material is needed.
-
-**What does the cohort already know?** The `Tech_Stack_Certifications` column holds a comma-separated string per student (`"Python,SQL,Mongodb"`). The pipeline:
+**What does the cohort already know?** The `tech_stack` column holds a comma-separated string per student (`"Python,SQL,Mongodb"`):
 
 ```
 "Python,SQL,Mongodb"  →  split(',')  →  ['Python', 'SQL', 'Mongodb']
                       →  flatten     →  90 individual entries (with duplicates)
-                      →  de-duplicate →  26 unique technologies
                       →  count each   →  {'Python': 19, 'SQL': 18, ...}
 ```
 
-The count for each technology **is the number of students who already know it** — which is a direct measure of how much teaching that topic actually requires.
+The count for each technology **is the number of students who already know it** — a direct measure of how much teaching that topic requires.
 
 ### Stage 2 — Shortlist the topics
 
 A topic is shortlisted only if **5 or more students already know it**.
 
-This is the core insight of the project, and it is worth stating plainly because it is counter-intuitive: *a topic is worth teaching only if many students already know it.* If nobody knows it, it is either irrelevant to the batch or belongs in a different course. If nearly everyone knows it, it is not worth class time. The sweet spot is the middle — a topic that a meaningful chunk of the batch is shaky on.
+This is the core insight, and it is worth stating plainly because it is counter-intuitive: *a topic is worth teaching only if many students already know it.* If nobody knows it, it either doesn't belong in this course or belongs elsewhere. If nearly everyone knows it, it isn't worth class time. The sweet spot is the middle — a topic that a meaningful chunk of the batch is shaky on.
 
 For the sample batch, 26 unique technologies collapse to **6 shortlisted topics**.
 
 ### Stage 3 — Assign weightage
 
-Each shortlisted topic is mapped to a percentage of the syllabus based on how many students already know it. The heavier the existing knowledge, the more class time it deserves to bring everyone to the same level.
+Each shortlisted topic maps to a percentage of the syllabus based on how many students already know it.
 
-| Students who know it | Weightage | Rationale |
-| :--- | :--- | :--- |
-| 5 – 7 | 5% | Small gap, light touch |
-| 10 – 13 | 10% | Noticeable gap |
-| 15 – 18 | 30% | Large gap, majority shaky |
-| 19 – 21 | 45% | Largest gap in the batch |
-| 22 – 23 | 50% | Effectively a blank slate |
+| Students who know it | Weightage |
+| :--- | :--- |
+| 5 – 7 | 5% |
+| 8 – 14 | 10% |
+| 15 – 18 | 30% |
+| 19 – 21 | 45% |
+| 22 + | 50% |
 
 ### Stage 4 — Convert weightage to time
-
-Weightage is abstract; a tutor needs a calendar.
 
 | Weightage | Time allotted |
 | :--- | :--- |
@@ -145,7 +143,7 @@ The same data supports per-student lookup, so a tutor can pull up one learner's 
 
 ## Verified Output on the Sample Batch
 
-The repository ships a real 30-student batch file (`static/Fynd_Batch3.xlsx`). These are the **actual computed values** from running the pipeline over it — not illustrations.
+The repository ships a 30-student batch file ([`data/sample_batch_30.xlsx`](data/sample_batch_30.xlsx)). These are the **actual computed values**, locked in by the test suite — not illustrations.
 
 ### Cohort split
 
@@ -197,87 +195,73 @@ Six topics survive Stages 2–4, and the weightages sum to exactly **100%**:
 
 ## Tech Stack
 
-### Backend
-
-| Technology | Version | Role |
-| :--- | :--- | :--- |
-| **Python** | 3.8.5 | Runtime (pinned via `runtime.txt`) |
-| **FastAPI** | 0.75.0 | Web framework, routing, form parsing, JSON APIs |
-| **Uvicorn** | 0.17.6 | ASGI server |
-| **Gunicorn** | 20.1.0 | Process manager — runs 3 Uvicorn workers |
-| **Jinja2** | 3.1.1 | Server-side template rendering |
-| **python-multipart** | 0.0.5 | Required by FastAPI for `Form(...)` handling |
-| **MySQL Connector/Python** | 8.0.28 | Database driver |
-
-### Data
-
-| Technology | Version | Role |
-| :--- | :--- | :--- |
-| **MySQL** | 8.0 | Managed instance on Clever Cloud |
-| **SQLAlchemy** | 1.4.32 | Engine + automatic table creation from the DataFrame |
-| **pandas** | 1.3.5 | Excel ingestion, table creation, `to_sql` |
-| **openpyxl** | 3.0.9 | `.xlsx` engine backend for pandas |
-
-### Frontend
+### Application
 
 | Technology | Role |
 | :--- | :--- |
-| **CanvasJS** | Pie and doughnut charts for the batch visualisations |
-| **jQuery** | 1.11.1 (via CanvasJS CDN) — DOM manipulation and chart binding |
-| **Vanilla JS `fetch`** | Async calls from page to JSON API |
-| **HTML5 Forms** | Native `POST`/`GET` form navigation between pages |
+| **Python 3.11** | Runtime |
+| **Streamlit 1.65** | UI framework, charting, caching, app lifecycle |
+| **Plotly 7.1** | Interactive donut, bar and doughnut charts |
+| **pandas 3.0** | Spreadsheet ingestion, table creation |
+| **openpyxl** | `.xlsx` engine |
+| **SQLite** | On-disk relational store, built automatically on first run |
+| **pytest 9** | Test suite |
 
-No frontend framework, no build step, no bundler, no `node_modules`. Pages are server-rendered Jinja templates that call the app's own JSON endpoints on load.
+### What the stack used to be
 
-### Deployment
-
-| Technology | Role |
+| Removed | Why |
 | :--- | :--- |
-| **Heroku** | Hosting — configured via `Procfile` |
-| **Clever Cloud** | Hosted MySQL database |
+| FastAPI + Uvicorn + Gunicorn | Stateless-serverless hosting doesn't fit a stateful, import-time-computing app — see [Project Evolution](#project-evolution--fastapi--streamlit) |
+| Jinja2 templates (×7) | Streamlit renders natively |
+| CanvasJS + jQuery (CDN) | Streamlit bundles the charting layer |
+| Hand-written `fetch()` JavaScript | Native widget reruns replace it |
+| `mysql-connector-python` | No external database means nothing to configure or leak |
+| `mysqlclient`, `Scrapy`, `Twisted`, the Zope stack (~150 packages) | Environment dump artefact; never imported |
 
 ---
 
 ## Architecture
 
 ```
-                      ┌──────────────────────────┐
-   Browser  ────────► │  Heroku / Uvicorn        │
-                      │  Gunicorn (3 workers)    │
-                      └────────────┬─────────────┘
-                                   │
-                      ┌────────────▼─────────────┐
-                      │       main.py            │
-                      │  ┌────────────────────┐  │
-                      │  │  HTML routes       │──┼──► templates/*.html
-                      │  │  (Jinja2 render)   │  │
-                      │  ├────────────────────┤  │
-                      │  │  JSON API routes   │──┼──► fetch() in browser
-                      │  └────────────────────┘  │
-                      └────────────┬─────────────┘
-                                   │ import
-                      ┌────────────▼─────────────┐
-                      │    Priorities.py         │
-                      │  ┌────────────────────┐  │
-                      │  │ Stage 1  Profile   │  │
-                      │  │ Stage 2  Shortlist │  │
-                      │  │ Stage 3  Weightage │  │
-                      │  │ Stage 4  Time      │  │
-                      │  │ Stage 5  Records   │  │
-                      │  └────────────────────┘  │
-                      └────────────┬─────────────┘
-                                   │ mysql.connector
-                      ┌────────────▼─────────────┐
-                      │      MySQL (Clever Cloud)│
-                      │        table: test_3     │
-                      │      30 student records  │
-                      └──────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│  Streamlit runtime (serverless or local)                 │
+└───────────────────────┬──────────────────────────────────┘
+                        │
+             ┌──────────▼──────────┐
+             │       app.py       │  UI only:
+             │                     │  metrics · charts · forms
+             └──────────┬──────────┘
+                        │
+        ┌───────────────┴───────────────┐
+        │                               │
+┌───────▼────────────────┐   ┌──────────▼──────────────┐
+│  tutor/analysis.py     │   │   tutor/data.py         │
+│  ─────────────────     │   │  ──────────────────     │
+│  Stage 1  Profile      │   │  read_spreadsheet()     │
+│  Stage 2  Shortlist    │   │  ensure_database()      │
+│  Stage 3  Weightage    │   │  fetch_records()        │
+│  Stage 4  Time         │   └──────────┬──────────────┘
+│  Stage 5  Lookup       │              │
+│                        │     ┌────────▼─────────┐
+│  pure functions,       │     │  SQLite          │
+│  no I/O, no framework  │     │  data/tutor.db   │
+└────────────────────────┘     │  table: students │
+                               └────────┬─────────┘
+                                        │
+                               ┌────────▼─────────────┐
+                               │ data/sample_batch_30 │
+                               │        .xlsx         │
+                               │   (seed source)      │
+                               └──────────────────────┘
 
-              static/Fynd_Batch3.xlsx
-                   (one-time seed source)
+              tutor/config.py  ── all decision tables live here
 ```
 
-**One important structural note:** `Priorities.py` runs its queries and all five stages **at module import time**. Because `main.py` does `from Priorities import ...`, the entire dataset is read, analysed, and held in memory when the web server boots. This is why the JSON endpoints return plain pre-computed lists rather than querying per request — it is fast and simple, but it means the dataset is fixed until the server restarts, and it does not scale to a dynamic multi-batch system.
+**Two structural improvements over the original:**
+
+1. **No work at import time.** The original opened a database connection and ran all five stages when `main.py` was imported, so the app could not start if the database was unreachable. Now `data.py` builds the database lazily on first use and `analysis.py` is pure — no I/O, no framework imports, directly testable.
+
+2. **Computed once per session.** `@st.cache_data` runs the pipeline on first request and reuses the result, replacing once-per-server-boot.
 
 ---
 
@@ -285,119 +269,49 @@ No frontend framework, no build step, no bundler, no `node_modules`. Pages are s
 
 ```
 Tutor_Module/
-├── main.py                    # FastAPI app — all routes, auth, CORS
-├── Priorities.py              # The 5-stage algorithm + MySQL queries
-├── requirements.txt           # Full dependency list (UTF-16 encoded)
-├── runtime.txt                # Python 3.8.5 pin for Heroku
-├── Procfile                   # gunicorn -w 3 -k uvicorn.workers.UvicornWorker main:app
-├── .gitignore                 # __pycache__/, .idea/
+├── app.py                        # Streamlit entry point — UI only
+├── requirements.txt              # 5 real dependencies
+├── .streamlit/
+│   └── config.toml               # headless mode + theme
 │
-├── static/
-│   ├── Fynd_Batch3.xlsx           # Sample batch — 30 student records
-│   └── Fynd_Batch3 - Copy.xlsx    # Working duplicate
+├── tutor/                        # the application package
+│   ├── __init__.py
+│   ├── config.py                 # ⭐ all decision tables live here
+│   ├── data.py                   # spreadsheet → SQLite → records
+│   └── analysis.py               # ⭐ the five-stage pipeline
 │
-└── templates/
-    ├── index.html                         # Login page
-    ├── output_selection.html             # Choose batch vs individual view
-    ├── individual_student_entry.html      # Student lookup form
-    ├── individual_student_details.html   # Single student record table
-    ├── batch_details_one.html            # Charts: cohort split + tech frequency
-    ├── batch_details_two.html            # Charts: shortlist + weightage/time tables
-    └── main.js                           # Standalone fetch logic (early draft)
+├── data/
+│   ├── sample_batch_30.xlsx      # 30 student records (anonymised)
+│   └── tutor.db                  # generated on first run — gitignored
+│
+├── scripts/
+│   └── sanitize_source_data.py   # one-time anonymisation migration
+│
+├── tests/
+│   ├── test_pipeline.py          # 44 tests — algorithm + data hygiene
+│   └── test_app.py               # 16 tests — end-to-end UI
+│
+└── README.md
 ```
 
 ---
 
 ## Data Model
 
-A single table, `test_3`, created automatically by `pandas.DataFrame.to_sql()`. The source spreadsheet header row becomes the column names:
+A single SQLite table, `students`, created automatically by `pandas.DataFrame.to_sql()` on first run. The spreadsheet header maps to canonical column names on import:
 
-| # | Column | Type | Example |
+| # | Column | Source header | Example |
 | :--: | :--- | :--- | :--- |
-| 1 | `Serial_no` | int | `1` |
-| 2 | `Name` | varchar | `Pranay Avinash Bhatkar` |
-| 3 | `DOB` | varchar | `21/02/1997` |
-| 4 | `Graduation_Stream` | varchar | `B.E. Electronics` |
-| 5 | `Institute_University` | varchar | `Vidyalankar Institute of Technology/University of Mumbai` |
-| 6 | `Post Graduation_Stream_(NA_if_not_applicable)` | varchar | `P.G Diploma/Big Data Analytics` |
-| 7 | `Institute_University_(NA_if_not_applicable)` | varchar | `CDAC Acts/GOI` |
-| 8 | `Tech_Stack_Certifications` | varchar | `Python,Big_data,PowerBi` |
+| 1 | `serial_no` | `Serial_no` | `1` |
+| 2 | `name` | `Name` | `Pranay Avinash Bhatkar` |
+| 3 | `dob` | `DOB` | `21/02/1997` |
+| 4 | `graduation_stream` | `Graduation_Stream` | `B.E. Electronics` |
+| 5 | `institution` | `Institute_University` | `Vidyalankar Institute of Technology` |
+| 6 | `post_graduation_stream` | `Post Graduation_Stream_(NA_if_not_applicable)` | `P.G Diploma/Big Data Analytics` |
+| 7 | `post_graduation_institution` | `Institute_University_(NA_if_not_applicable)` | `CDAC Acts/GOI` |
+| 8 | `tech_stack` | `Tech_Stack_Certifications` | `Python,Big_data,PowerBi` |
 
-`NA` is used as an explicit sentinel for students with no postgraduate degree. `Tech_Stack_Certifications` is a comma-delimited multi-value field — the single most important column in the schema, since every syllabus decision derives from it.
-
----
-
-## API Reference
-
-### JSON endpoints
-
-These return computed results and are what the frontend's `fetch()` calls consume.
-
-| Method | Endpoint | Returns | Example response |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/Count` | CS/IT vs non-CS/IT split | `{"count": [14, 16]}` |
-| `GET` | `/Tech_Stack_Certifications` | Unique tech list | `{"...": ["Python", "SQL", ...]}` |
-| `GET` | `/Tech_Stack_Certifications_Known_By_Students` | Technology + student count | `{"subject_count": [("Python", 19), ...]}` |
-| `GET` | `/Shortlisting_the_subjects` | Topics known by ≥ 5 students | `{"shortlist": [("Python", 19), ...]}` |
-| `GET` | `/Weightage_per_Subject` | Syllabus weightage per topic | `{"weightage": [("Python", "45%"), ...]}` |
-| `GET` | `/Time_Period_per_Subject` | Time allotted per topic | `{"Time": [("Python", "3_Weeks"), ...]}` |
-| `GET` | `/individual_student_details` | One student's full record | `{"details": [["Serial_no", "1"], ...]}` |
-
-### Page routes
-
-| Method | Endpoint | Purpose | Template |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/` | Login page | `index.html` |
-| `POST` | `/input_details` | Validate tutor credentials | `output_selection.html` |
-| `POST` | `/output_selection` | Branch: individual vs batch | depends on choice |
-| `POST` | `/individual_student_records` | Validate student lookup | `individual_student_details.html` |
-| `GET` | `/output` | Page 2 of batch view | `batch_details_two.html` |
-| `GET` | `/previous_output` | Back to page 1 | `batch_details_one.html` |
-| `GET` | `/selection_page` | Back to mode selection | `output_selection.html` |
-| `GET` | `/individual_entry` | Back to student lookup | `individual_student_entry.html` |
-
-Interactive API docs are available at `/docs` and `/redoc` while the app is running, courtesy of FastAPI's automatic OpenAPI generation.
-
----
-
-## Application Flow
-
-```
-┌────────────────────┐
-│  /  —  Login       │   Tutor enters credentials
-│  "Management       │
-│   System for       │
-│   Tutors"         │
-└─────────┬──────────┘
-          │ POST /input_details
-          ▼
-┌────────────────────┐
-│  Mode Selection    │   Choose a view:
-└─────────┬──────────┘
-     ┌────┴─────┐
-     ▼          ▼
-┌─────────┐  ┌──────────────────────────────┐
-│ Batch   │  │  BATCH VIEW                  │
-│ View    │  │  Page 1 →  Pie: cohort split  │
-│         │  │            Pie: tech frequency│
-│         │  │  [Next] →                     │
-│         │  │  Page 2 →  Doughnut: shortlist│
-│         │  │           Table: weightage     │
-│         │  │           Table: time          │
-│         │  │  [Previous] → back to page 1   │
-└─────────┘  └──────────────────────────────┘
-     │
-     ▼
-┌──────────────────────────────┐
-│  INDIVIDUAL VIEW             │
-│  Enter username + DOB        │
-│  → validated against DB      │
-│  → Field/Value table of the  │
-│    matched student           │
-└──────────────────────────────┘
-```
-
-Charts are rendered with **CanvasJS**, loaded from CDN, and populated by `fetch()` calls to the app's own JSON endpoints using `window.location.origin` as the base — so the same code works on localhost and on the deployed Heroku URL without changes.
+`NA` is the explicit sentinel for "not applicable". `tech_stack` is a comma-delimited multi-value field — the single most important column in the schema, since every syllabus decision derives from it.
 
 ---
 
@@ -405,155 +319,119 @@ Charts are rendered with **CanvasJS**, loaded from CDN, and populated by `fetch(
 
 ### Prerequisites
 
-- Python 3.8+
-- A MySQL database (local, or a managed instance)
-- `pip` and `virtualenv`
+Python 3.9 or newer. Nothing else — no database server, no Node, no Docker.
 
-### 1. Clone
+### 1. Clone and set up
 
 ```bash
 git clone https://github.com/pranaybhatkar/Tutor_Module.git
 cd Tutor_Module
-```
 
-### 2. Create a virtual environment
-
-```bash
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-```
-
-### 3. Install dependencies
-
-```bash
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-> **Note:** `requirements.txt` is saved as UTF-16, so some `pip` versions may misread it. If installation misbehaves, re-save the file as UTF-8 first.
-
-### 4. Configure the database connection
-
-Open `Priorities.py` and point the connector at your database. **Read the [Security Notice](#security-notice) before copying the credentials currently in this repository.**
-
-```python
-connector = mysql.connector.connect(
-    host='localhost',
-    database='Test_2',
-    user='root',
-    password='your_password'
-)
-```
-
-### 5. Seed the database
-
-See [Database Seeding](#database-seeding).
-
-### 6. Run
+### 2. Run
 
 ```bash
-uvicorn main:app --reload
+streamlit run app.py
 ```
 
-Then open **http://127.0.0.1:8000**.
+Open **http://localhost:8501**.
 
-Interactive API docs: **http://127.0.0.1:8000/docs**
+The SQLite database is created from the spreadsheet on first start and reused after that. It is gitignored, so every fresh clone rebuilds it.
 
----
-
-## Database Seeding
-
-The table is created from the spreadsheet by pandas in one shot. These blocks ship **commented out** inside `Priorities.py` — uncomment them, run once, then re-comment:
+### 3. Reset after editing the spreadsheet
 
 ```python
-df = pd.read_excel('Fynd_Batch3.xlsx')
-
-engine = create_engine("mysql://root:root@localhost/Test_2")
-df.to_sql('test_3', con=engine, if_exists='append', index=False)
-
-connector.commit()
+from tutor.data import reset_database
+reset_database()
 ```
 
-- `read_excel()` — loads the batch sheet (requires `openpyxl`)
-- `create_engine()` — URL format is `mysql://user:password@host/database`
-- `to_sql(..., if_exists='append')` — creates `test_3` if absent, otherwise appends
-- `index=False` — stops pandas adding its own index column
-- `commit()` — persists; without it the data rolls back
+### 4. Run the tests
 
-Seeding twice will double your rows, since `append` is used.
+```bash
+python -m pytest -v
+```
 
 ---
 
 ## Deployment
 
-### Heroku
+### Streamlit Community Cloud (recommended, free)
 
-Three files make this deployable as-is:
+1. Push the code to GitHub — done.
+2. Go to **[share.streamlit.io](https://share.streamlit.io)**.
+3. **Sign in with GitHub** and authorise Streamlit.
+4. Pick `pranaybhatkar/Tutor_Module`, branch `streamlit-migration` (or `master` once merged).
+5. Click **Deploy**.
 
-**`Procfile`**
-```bash
-web: gunicorn -w 3 -k uvicorn.workers.UvicornWorker main:app
-```
-Three Uvicorn workers under Gunicorn — the correct pattern for an ASGI app on a multi-dyno-free Heroku plan.
+That's the whole process. Streamlit detects `requirements.txt` and `.streamlit/config.toml` automatically and builds a container for you.
 
-**`runtime.txt`**
-```
-python-3.8.5
-```
+`data/tutor.db` is gitignored, so the deployed app builds its own database from the spreadsheet on first request — nothing to provision.
 
-**`requirements.txt`** — read automatically by the buildpack.
+### Any other host
 
 ```bash
-heroku create tutor-module
-heroku addons:create clevertc-mysql
-heroku config:set DB_HOST=... DB_NAME=... DB_USER=... DB_PASSWORD=...
-git push heroku master
+streamlit run app.py --server.port 8501 --server.address 0.0.0.0
 ```
 
-### Managed MySQL on Clever Cloud
-
-The database in use is a Clever Cloud MySQL add-on, which supplies host, database name, user, and password as config vars — currently consumed directly inside `Priorities.py`. See [Security Notice](#security-notice).
+Works on Render, Railway, Fly.io, or any VM with Python. Add a `Dockerfile` if your platform prefers one.
 
 ---
 
-## How We Built It
+## Project Evolution — FastAPI → Streamlit
 
-### Start with the data, then the algorithm
+The first version was a **FastAPI + Jinja2 + CanvasJS** application deployed on Heroku. It worked, and it is preserved in git history. This version keeps the algorithm and replaces the delivery layer.
 
-The project began in `Priorities.py` with **no web app at all** — the first priority was to prove the logic produced sensible output. `pandas` loaded the spreadsheet, `to_sql` created the table, and the five stages were written and verified in the terminal before a single line of FastAPI existed. Every stage `print()`s its result, and those print statements were the whole feedback loop during development.
+### Why it moved
 
-This ordering mattered: the syllabus logic is the part that carries the actual idea, and it is completely independent of the delivery layer.
+| Constraint | Problem |
+| :--- | :--- |
+| **Heroku free tier** | The dyno shut down; the app now 404s |
+| **Import-time computation** | `main.py` did `from Priorities import …`, which opened a MySQL connection and ran all five stages at boot. Unreachable database ⇒ the app never started, with no fallback |
+| **Module-level mutable state** | `test = []` was mutated per request. Under `gunicorn -w 3` each worker held its own copy, so a lookup could hit a worker that never saw the value |
+| **Serverless incompatibility** | The import-time DB work and per-request state make this a poor fit for edge platforms like Vercel, where functions are stateless and invocation-scoped |
+| **No database infrastructure** | Hardcoded MySQL credentials meant the project could not run anywhere without those exact credentials |
 
-### Write it out longhand first
+### What changed
 
-The code deliberately keeps its exploratory shape. You will see commented-out `print()` calls next to every block, alternative list-comprehension versions sitting beneath the loop-based ones, and long explanatory comments above each stage.
+| Before | After |
+| :--- | :--- |
+| `main.py` — routes, auth, CORS, templates | `app.py` — UI only |
+| `Priorities.py` — SQL + logic + `print` | `tutor/analysis.py` — pure functions |
+| Hardcoded MySQL at import | `tutor/data.py` — lazy SQLite |
+| Magic numbers inline | `tutor/config.py` — one decision table |
+| 7 Jinja templates + `main.js` | Native Streamlit widgets |
+| `requirements.txt` — 150 packages, UTF-16 | 5 dependencies |
+| No tests | 60 tests |
+| Bundled decision tables | Contiguous bands (bug fix, below) |
 
-```python
-# Longhand — nested loops, as first written
-repetitive_subjects_list = []
-for each_sub_list in subjects_list:
-    for each_subject in each_sub_list:
-        repetitive_subjects_list.append(each_subject)
+### Bugs fixed along the way
 
-# Equivalent comprehension
-another_temp_list = [each_subject for each_sub_list in subjects_list
-                     for each_subject in each_sub_list]
+1. **Weightage gaps.** The original bands were `5–7`, `10–13`, `15–18`, `19–21`, `22–23`. A topic known by **8, 9, 14, or 24+** students matched nothing and was silently dropped from the syllabus with no error. The bands are now contiguous and exhaustive; every previously published result is unchanged.
+2. **Broken student lookup.** A `for`/`else` whose `else` bound to the inner loop raised an `HTTPException` on the first non-matching record — so lookup only worked if the student was in record one.
+3. **Mislabelled record fields.** The `Fields` list contained `'Institute/University'` twice while the real columns were `Institute_University` and `Institute_University_(NA_if_not_applicable)`, so zipping mislabelled the final column.
+4. **Quadratic counting.** `list.count()` inside a loop over every unique subject became a single `Counter` pass.
+5. **Mixed date types.** Most `DOB` values were `DD/MM/YYYY` strings, but row 7 held a raw Excel serial (`35489`). All dates are normalised to text on import.
+6. **Double-seeded rows.** `to_sql(if_exists="append")` duplicated every student if the seed ran twice. Now `replace`.
+
+---
+
+## Testing
+
+```bash
+python -m pytest -v
+# 60 passed
 ```
 
-Both versions are kept. The longhand form documents the reasoning; the comprehension documents the idiom. This is the most verbose part of the codebase and it is intentional.
+| Suite | Tests | Covers |
+| :--- | ---: | :--- |
+| `test_pipeline.py` | 44 | All five stages against the real dataset, plus regression tests for every bug listed above |
+| `test_app.py` | 16 | The real `app.py` driven headlessly via `AppTest` — metrics, charts, tables, both views, and every lookup path |
 
-### Derive the threshold from the data, not from theory
-
-No source said *"shortlist topics known by 5 or more students."* That number came from looking at the actual distribution — with 30 students, a cutoff of 5 isolated a meaningful middle band while discarding the long tail of one-off technologies (`PowerBi: 1`, `Cadence: 1`, `LT Spice: 3`). The weightage and time tables were then built around the counts that survived, which is why they sum to exactly 100% for this batch.
-
-### Serve HTML over JSON APIs, not a SPA
-
-Once the data pipeline worked, `main.py` wrapped it in two kinds of routes: page routes returning rendered Jinja templates, and JSON routes returning the computed lists. The templates then call the JSON routes with `fetch()` on `window.onload` and draw the results.
-
-The payoff is that the analysis endpoints are independently useful — hit `/Weightage_per_Subject` directly and you get the syllabus as data, with no HTML involved. No frontend framework was needed to get there.
-
-### Deploy early, deploy often
-
-`Procfile` and `runtime.txt` were committed alongside the first working version rather than added at the end, which kept the Heroku deployment in a known-good state while the UI was being iterated on.
+The UI tests execute the actual application script, so a broken chart or an unhandled exception fails in CI rather than in front of a viewer.
 
 ---
 
@@ -561,104 +439,110 @@ The payoff is that the analysis endpoints are independently useful — hit `/Wei
 
 | Decision | Rationale | Trade-off |
 | :--- | :--- | :--- |
-| Compute at import time | Endpoints are instant; total logic is visible in one file | Dataset frozen until restart; won't scale to many batches |
-| `>= 5` shortlist cutoff | Empirical, derived from the real distribution | Not a general heuristic — a different batch size needs recalibration |
-| Weightage buckets by student count | Translates a gap into concrete class time | Silent gaps between buckets (see below) |
-| HTML forms for navigation | Zero frontend build tooling | Full page reloads; no client-side state |
-| Server-rendered Jinja + `fetch()` | JSON endpoints stay reusable | Data rendered client-side anyway — a middle path between MPA and SPA |
-| MySQL via `mysql.connector` | Real relational store, familiar tooling | Connection opened at import; no pooling |
-| `pandas.to_sql()` seeding | Table shape stays defined by the spreadsheet | Header changes silently break column references |
+| SQLite over MySQL | Zero infrastructure, still real SQL via `to_sql` and `SELECT` | Single-writer; not a multi-user server |
+| `>= 5` shortlist cutoff | Empirical, derived from the real distribution | Needs recalibration for a different batch size |
+| Bars not a pie for 26 categories | The original drew 26 pie slices — unreadable | Loses the "part of a whole" read, but gains clarity |
+| Donut for the 6 shortlisted topics | Six slices is exactly where a pie still works | — |
+| No login gate | A hardcoded `admin`/`password` check was security theatre; this is a public demo | Student records are readable by anyone who finds the app |
+| Pipeline in a pure module | Testable without a database or a browser | Slightly more files than one big script |
+| Decision tables in `config.py` | Tunables readable in one place without reading logic | One extra import |
+| `Counter` over `list.count()` | O(n) instead of O(n²) | — |
 
 ---
 
 ## Known Limitations
 
-Documented honestly, because several are visible in the code:
+1. **The heuristic is calibrated to a 30-student batch.** The `>= 5` cutoff and the weightage bands were derived from one dataset. A 200-student batch would need different thresholds.
 
-1. **Weightage buckets have gaps.** Ranges cover 5–7, 10–13, 15–18, 19–21, and 22–23. A subject known by **8, 9, 14, or 24+** students matches no bucket and is dropped without warning. On the sample batch nothing lands in a gap, but on other data it would.
+2. **No authentication.** The original had a hardcoded credential check; removing it made the app honestly open rather than falsely closed. Anyone with the URL can look up any student. Add Streamlit's `[client] cookieSecret`-backed login before using this with real data.
 
-2. **`Fields` in `main.py` is misaligned.** The list has `'Institute/University'` **twice**, while the real columns are `Institute_University` and `Institute_University_(NA_if_not_applicable)`. Zipping it against an 8-field record mislabels the final column.
+3. **Static dataset.** The spreadsheet is read once per session. There is no upload, no per-course storage, no way to analyse a second batch in the same deployment.
 
-3. **`for` / `else` in `/individual_student_records`.** The `else` belongs to the inner `for`, so an `HTTPException` is raised the first time a record fails to match. Student lookup effectively only works if the match is in the very first record examined.
+4. **Weightage bands are a step function.** Counts 8–14 all get 10% regardless of whether there are 8 or 14 students. A continuous formula would be smoother but would change every published figure.
 
-4. **Duplicate function names.** `main.py` defines several functions all named `index`, and four all named `get_tech_stack_certifications`. FastAPI registers routes at decoration time so it still runs, but the names are meaningless for debugging.
+5. **Technology names are unnormalised.** `Python` and `python`, or `React` and `ReactJS`, would count as two topics. The shipped data is consistent; hand-entered data may not be.
 
-5. **State lives in a module-level list.** `test = []` in `main.py` is mutated per request. Under Gunicorn's 3 workers each has its own copy, so a lookup can hit a different worker than the one holding the value.
+6. **`NA` is overloaded.** It means both "no postgraduate degree" and "blank cell".
 
-6. **`DOB` is inconsistently typed.** Most rows store a string like `21/02/1997`, but at least one stores an Excel serial number (`35489`) — visible in the seed file.
+7. **No CI.** The test suite runs locally but nothing enforces it on push yet.
 
-7. **No tests, no CI, no linter.** Verification was manual via `print()` output.
-
-8. **`main.js` is dead code.** The working fetch logic was inlined into the templates; `templates/main.js` is an earlier draft with hardcoded `localhost:8000` URLs, and the `<script>` tag referencing it in `index.html` is commented out.
+8. **`scripts/sanitize_source_data.py` is not re-runnable.** It is a one-time migration; the pre-sanitisation file lives in git history.
 
 ---
 
 ## Future Work
 
-- Move credentials to environment variables and add a `.env` / `pydantic-settings` config
-- Replace the weightage ranges with a continuous formula so no count can fall through a gap
-- Convert the nested-loop flat-map to `str.split(',')` + `set()` / `Counter()`
-- Move computation out of module import into a service layer with caching
-- Multi-batch support — one batch per course, selectable at login
-- Parameterise the shortlist threshold instead of hardcoding `5`
-- Correct the `Fields` alignment and rework student lookup with proper SQL
-- Replace `print()` verification with a pytest suite over the pipeline
-- CI with ruff + pytest on push
-- Progress tracking — compare a mid-term assessment against the initial profile
-- Move to server-side sessions with hashed passwords instead of the hardcoded check
+- [ ] Upload a batch spreadsheet through the UI instead of shipping it in the repo
+- [ ] Multi-batch support — one batch per course, selectable at login
+- [ ] Parameterise the shortlist threshold rather than hardcoding `5`
+- [ ] Technology synonym/normalisation table (`ReactJS` → `React`)
+- [ ] Continuous weightage function with a sanity check that totals 100%
+- [ ] Export the generated syllabus to PDF or ICS calendar
+- [ ] Mid-term assessment vs. the initial profile, to show whether the plan worked
+- [ ] GitHub Actions running `pytest` on every push
+- [ ] `ruff` + `mypy` in CI
+- [ ] Optional password gate via Streamlit secrets
+
+---
+
+## Data Privacy
+
+The original spreadsheet contained **30 real students' full names, dates of birth, universities and qualifications**, and was committed to a public repository.
+
+Under the agreed **Option A** policy, [`data/sample_batch_30.xlsx`](data/sample_batch_30.xlsx) was migrated as follows:
+
+| Rows | Treatment |
+| :--- | :--- |
+| `serial_no = 1` | **Left completely intact** — the repository owner's own record, kept so the project demonstrates a real end-to-end result |
+| `serial_no = 2…30` | `name` → `Student 002…030`, `dob` → synthetic date |
+
+Every field the algorithm reads — `graduation_stream`, `tech_stack`, `institution`, `post_graduation_stream` — was carried over **verbatim**. That is what guarantees the results in this README are identical before and after: **14 / 16**, **Python 19**, **SQL 18**, **100% weightage**. `tests/test_pipeline.py` asserts every one of those numbers, plus that no real name survives.
+
+All dates of birth were also normalised to `DD/MM/YYYY`, which fixed the Excel-serial bug described above.
+
+The migration is reproducible from [`scripts/sanitize_source_data.py`](scripts/sanitize_source_data.py).
+
+> **Git history still contains the original file.** Sanitising the current tree does not remove past commits. Erasing it requires rewriting history or starting a fresh repository — see [Security Notice](#security-notice).
 
 ---
 
 ## Security Notice
 
-> ### Please read before reusing this code
->
-> This repository is a learning project and its original state contains several
-> genuine security problems. They are listed here rather than hidden.
+The credentials that were hardcoded in the original `Priorities.py` **are gone from the current tree.** They are gone from `main.py` too, along with the `admin`/`password` check and the wide-open CORS configuration that combined `allow_origins=["*"]` with `allow_credentials=True`.
 
-1. **Live database credentials are hardcoded in `Priorities.py` and committed to a public repository.** The commit history still contains them. **Rotate that password now** — do not assume it is safe because the code is old. Then move to environment variables:
-   ```python
-   connector = mysql.connector.connect(
-       host=os.environ['DB_HOST'],
-       database=os.environ['DB_NAME'],
-       user=os.environ['DB_USER'],
-       password=os.environ['DB_PASSWORD'],
-   )
-   ```
+**But git history still contains all of it.** If those credentials were ever live — and the MySQL password was exposed on a public repository for the lifetime of the project — treat them as compromised:
 
-2. **Tutor credentials are hardcoded** in `main.py` as a plaintext `username == 'admin' and password == 'password'` comparison. Replace with hashed passwords and server-side sessions.
+1. **Rotate the MySQL password.** It was public. Assume it is compromised regardless of how long ago it was committed.
+2. **Rewrite history or start a new repository** if the original spreadsheet should no longer be retrievable. `git filter-repo` on the commits that touched `static/Fynd_Batch3.xlsx` is the usual approach — but this rewrites every commit hash, so anyone with a clone must re-clone.
+3. **Confirm the Clever Cloud and Heroku instances are shut down.** The Heroku app now 404s; the MySQL add-on may still exist and still be billable.
 
-3. **CORS is fully open** — `allow_origins` includes `"*"` alongside `allow_credentials=True`. This permits any origin to make credentialed requests. Restrict to the actual deployment origins and never combine `"*"` with credentials.
-
-4. **The seed spreadsheet contains real personal data** — 30 students' full names, dates of birth, universities, and qualifications. If these are real people, remove the file from the repository and consider whether GitHub's cached or forked copies need handling.
-
-5. **`individual_student_details` has no access control.** Once a lookup is cached in the `test` list, the record is served to whoever requests it.
-
-None of these are theoretical. If this is still deployed anywhere, treat it as an open system until items 1–3 are fixed.
+`git log --all -- static/Fynd_Batch3.xlsx` shows the commits holding the original file.
 
 ---
 
 ## Contributing
 
-Contributions are welcome, particularly around the items in [Future Work](#future-work).
-
 ```bash
 git checkout -b your-feature
 # make changes
+python -m pytest -v        # please keep the suite green
 git commit -m "Describe your change"
 git push origin your-feature
 ```
 
-Please do not commit credentials, and avoid adding real personal data to test fixtures.
+Two conventions worth preserving:
+
+- **Tunable values belong in `tutor/config.py`.** Thresholds and decision tables should be readable without opening the logic.
+- **No personal data in test fixtures.** Use synthetic records.
 
 ---
 
 ## License
 
-Released under the MIT License. See [LICENSE](./LICENSE) for details.
+Released under the MIT License. See [LICENSE](./LICENSE).
 
 ---
 
 ## Acknowledgements
 
-Built as a full-stack data-engineering project — the exercise was taking a raw spreadsheet of student résumés and turning it into a defensible, explainable teaching plan.
+Built as a full-stack data-engineering project: take a raw spreadsheet of student résumés and turn it into a defensible, explainable teaching plan — then rebuild the thing so anyone can run it with one command.
