@@ -4,7 +4,7 @@
 
 [![Live Demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://tutormodule-pranay-b-portfolio.streamlit.app)
 
-**[Try it live →](https://tutormodule-pranay-b-portfolio.streamlit.app)** · **[Architecture diagram →](docs/architecture.html)**
+**[Try it live →](https://tutormodule-pranay-b-portfolio.streamlit.app)** · **[Architecture diagram →](https://pranaybhatkar.github.io/tutor_module/architecture.html)**
 
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.65-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
@@ -222,7 +222,7 @@ Six topics survive Stages 2–4, and the weightages sum to exactly **100%**:
 
 ## Architecture
 
-> **📐 [Interactive runtime architecture diagram →](docs/architecture.html)**
+> **📐 [Interactive runtime architecture diagram →](https://pranaybhatkar.github.io/tutor_module/architecture.html)**
 >
 > A standalone, explorable HTML diagram covering the runtime: **11 components**, one
 > primary request path, external dependencies, and **two trust boundaries** (the hosted
@@ -230,9 +230,10 @@ Six topics survive Stages 2–4, and the weightages sum to exactly **100%**:
 > click-through source links to the exact lines in this repository, pinned to commit
 > [`5b08ad7`](https://github.com/pranaybhatkar/tutor_module/tree/5b08ad7fe862c969176d2c5d7b2bd32e256b6df9).
 >
-> It is a single self-contained file with no external scripts or fonts —
-> [download it](docs/architecture.html) and open it in any browser.
-> *(GitHub displays HTML files as source rather than rendering them.)*
+> It is a single self-contained file with no external scripts or fonts, served
+> as-is through GitHub Pages, so the link above renders it directly. The source is
+> [`docs/architecture.html`](https://github.com/pranaybhatkar/tutor_module/blob/master/docs/architecture.html)
+> if you would rather read or download it.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
